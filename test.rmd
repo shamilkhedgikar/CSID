@@ -1,0 +1,82 @@
+---
+title: "Clarence Stein Institute of Urban and Landscape Studies: Interactive Database Viewer"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    theme: united
+    horizontal_layout: fill
+    social: menu
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(leaflet)
+library(crosstalk)
+library(mapview)
+library(tidyverse)
+load("testing.RData")
+Stein_Table_dataframe <- as.data.frame(Stein_Table)
+colnames(Stein_Table_dataframe)[colnames(Stein_Table_dataframe)=="Year of Award (Start)"] <- "Year"
+colnames(Stein_Table_dataframe)[colnames(Stein_Table_dataframe)=="Category of Project"] <- "Category"
+Stein_Table_dataframe$Year <- as.numeric(Stein_Table_dataframe$Year)
+Stein_Table_dataframe$Access_2 <- paste0("<a href='",Stein_Table_dataframe$`Access (Link)`,"'>",Stein_Table_dataframe$`Access (Link)`,"</a>")
+Stein_Table_dataframe[Stein_Table_dataframe$Access_2 == "<a href='N/A'>N/A</a>", "Access_2"] <- "N/A"
+Stein_Table_sd <- SharedData$new(Stein_Table_dataframe, group = "Stein1")
+Stein_Table_datatable <- Stein_Table_dataframe[,c(2,4,5,6,7,8,9,16,11,13)]
+colnames(Stein_Table_datatable)[colnames(Stein_Table_datatable)=="Access_2"] <- "Access"
+Stein_Table_sd2 <- SharedData$new(Stein_Table_datatable, group = "Stein1")
+```
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+filter_slider("Year", "Year of Award", Stein_Table_sd, ~Year, step = 1)
+filter_checkbox("category", "Category of Research", Stein_Table_sd, ~Category)
+```
+
+---
+
+**Database:**  
+This database provides an interactive interface to view the projects that have been funded by the Clarence Stein Institute from 2004-2016. The databse has been classified into the three award categories and the details of the project can be found in the adjoining table. The map provides the spatial scope of these projects that spans across five continents and over 20 countries. Click on the relevant points for details of previously funded projects. 
+
+Row {data-height=400}
+-----------------------------------------------------------------------
+
+```{r}
+library(leaflet)
+pal <- colorFactor(c("#006699","#B31B1B", "#6EB43F"), domain = c("Category C: Support for Stein Sites", "Category A: Support for Senior Scholarly Research", "Category B: Support for Student Research"))
+leaflet(height = "100%" ,width = "100%" ,data = Stein_Table_sd, options = leafletOptions(preferCanvas = TRUE)) %>%
+addProviderTiles(providers$CartoDB.Positron, options = providerTileOptions()) %>%
+addCircleMarkers(radius = 8, stroke = FALSE, fillOpacity = 0.7,color = ~pal(Stein_Table_dataframe$Category), popup = ~paste(
+"Sr.no:", Stein_Table_dataframe$`Sr no.`, "<br>",
+"Category:", Stein_Table_dataframe$Category, "<br>",
+"Year of Award:", Stein_Table_dataframe$`Year of Award (Start)`, "<br>",
+"Name of Awardee:", Stein_Table_dataframe$`Name of Awardee`, "<br>",
+"Project:", Stein_Table_dataframe$Project, "<br>",
+"Location of Project:", Stein_Table_dataframe$`Location of Project`, "<br>",
+"Access(Link):", Stein_Table_dataframe$Access_2, "<br>",
+"Call Number(If Copy Available in the Library):", Stein_Table_dataframe$`Call Number (If Copy Available in the Library)`,"<br>"))%>%addLegend(pal = pal, values = c("Category A: Support for Senior Scholarly Research", "Category B: Support for Student Research", "Category C: Support for Stein Sites"), opacity = 1)%>%addScaleBar()
+```
+
+Row {data-height=600}
+-----------------------------------------------------------------------
+
+```{r}
+library(DT)
+datatable(Stein_Table_sd2, rownames = FALSE, extensions=list("Scroller", "Responsive"), style = 'bootstrap', class = 'table-bordered table-condensed', escape = FALSE, width="100%", options = list(
+  dom = 'tp',
+  scrollX = TRUE,
+  autoWidth = TRUE,
+  autoHeight = TRUE,
+  columnDefs = list(list(width = '300px', targets = list(8))),
+  columnDefs = list(list(width = '120px', targets = list(4))),
+  columnDefs = list(list(width = '80px', targets = list(9))),
+  pageLength = 10,
+  initComplete = JS(
+        "function(settings, json) {",
+        "$(this.api().table().header()).css({'font-size': '85%'});",
+        "}"))
+  ) %>% formatStyle(columns = c(1,2,3,4,5,6,7,8,9,10,11), fontSize = '75%')
+
+```
